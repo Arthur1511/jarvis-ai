@@ -5,6 +5,7 @@ A modular AI assistant inspired by Iron Man's JARVIS, built with Python, LangCha
 ## 🎯 Project Vision
 
 Create a local AI assistant that can:
+
 - Search and analyze information intelligently
 - Manage emails and calendar efficiently  
 - Analyze datasets (CSV, Parquet files)
@@ -157,10 +158,10 @@ jarvis_ai/
 ## 🚧 Planned Features (Roadmap)
 
 ### Phase 1: Core Foundation ✅
-- [x] Basic CLI interface
-- [x] Agent routing system
-- [x] Search agent with Gemini Pro
-- [x] Configuration management
+- [ ] Basic CLI interface
+- [ ] Agent routing system
+- [ ] Search agent with Gemini Pro
+- [ ] Configuration management
 
 ### Phase 2: Data & Email Integration
 - [ ] **DataAgent**: CSV/Parquet analysis with pandas + LLM
