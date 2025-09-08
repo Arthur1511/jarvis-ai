@@ -1,287 +1,194 @@
-# Jarvis AI Assistant
+# 🤖 Jarvis AI Assistant - MVP
 
-A modular AI assistant inspired by Iron Man's JARVIS, built with Python, LangChain, and Gemini Pro. Designed to help with information search, data analysis, workflow automation, and daily task management.
-
-## 🎯 Project Vision
-
-Create a local AI assistant that can:
-
-- Search and analyze information intelligently
-- Manage emails and calendar efficiently  
-- Analyze datasets (CSV, Parquet files)
-- Automate daily workflows
-- Integrate with personal tools (Obsidian, Google Sheets)
-- Provide voice interaction (planned feature)
-- Run on local server infrastructure (UmbrelOS compatible)
-
-## 🚀 Current Features
-
-- **Intelligent Agent Routing**: Automatically selects the best agent for each query
-- **Rich CLI Interface**: Beautiful terminal interface with conversation history
-- **Search Agent**: General knowledge queries powered by Gemini Pro
-- **Memory System**: Persistent conversation history and context
-- **Extensible Architecture**: Easy to add new agents and capabilities
-- **Observability Ready**: LangFuse integration for monitoring (optional)
-
-## 🛠 Tech Stack
-
-- **Core**: Python 3.8+, LangChain, Google Gemini Pro
-- **CLI**: Typer, Rich Console
-- **Data**: Pandas, PyArrow (for Parquet support)
-- **Memory**: SQLite, Sentence Transformers
-- **Monitoring**: LangFuse (optional)
-- **Future**: MCP (Model Context Protocol) for external integrations
-
-## 📋 Prerequisites
-
-- Python 3.8 or higher
-- Google AI Studio account (for Gemini Pro API key)
-- 8GB RAM minimum (for local model support in future versions)
+Assistente de IA inspirado no Jarvis do Homem de Ferro, construído com Python, LangChain e Gemini Pro.
 
 ## ⚡ Quick Start
 
-### 1. Clone and Setup Environment
+### 1. Clone e Configure
 
 ```bash
-# Clone the repository (or create project structure)
+# Clone ou crie o projeto
 mkdir jarvis_ai && cd jarvis_ai
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Execute o setup (Linux/Mac)
+chmod +x setup.sh
+./setup.sh
 
-# Install dependencies
+# Ou manualmente:
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+### 2. Configure APIs
 
 ```bash
-# Copy environment template
+# Edite o arquivo .env
 cp .env.example .env
-
-# Edit .env file with your API key
-GEMINI_API_KEY=your_gemini_api_key_here
+nano .env
 ```
 
-### 3. Initialize Project
+**Mínimo necessário:**
+
+- `GEMINI_API_KEY` - Obtenha em [Google AI Studio](https://aistudio.google.com)
+
+### 3. Execute
 
 ```bash
-# Run initial setup
-python main.py setup
-
-# Start interactive chat
-python main.py chat
-```
-
-## 🎮 Usage
-
-### Interactive Chat Mode
-
-```bash
-python main.py chat
-```
-
-Available commands during chat:
-- `exit` / `quit` / `sair` - Exit the chat
-- `help` - Show available commands and capabilities  
-- `clear` - Clear conversation history
-
-### Configuration Check
-
-```bash
+# Verificar configuração
 python main.py config
+
+# Iniciar chat
+python main.py chat
 ```
 
-### Example Interactions
+## 🎯 Funcionalidades Atuais (MVP)
 
+### ✅ Implementado
+
+- **Chat CLI Interativo** - Interface limpa com Rich
+- **Agente de Busca** - Perguntas gerais com Gemini Pro
+- **Roteamento Inteligente** - LangGraph para seleção de agentes
+- **Observabilidade** - Integração opcional com LangFuse
+- **Histórico de Conversa** - Contexto persistente na sessão
+
+### 🚧 Em Desenvolvimento
+
+- **📧 Email Agent** - Leitura e resumo de emails (Gmail)
+- **🎵 Music Agent** - Controle do Spotify
+- **📝 Standup Agent** - Notas baseadas em Azure DevOps/GitHub
+- **📋 Planning Agent** - Assistente para sprints
+- **📚 Obsidian Integration** - Acesso a notas
+
+## 🛠 Comandos CLI
+
+```bash
+python main.py chat          # Iniciar conversa
+python main.py config        # Verificar configuração
+python main.py setup         # Setup inicial
+python main.py version       # Informações da versão
 ```
-You: What is machine learning?
-🤖 JARVIS: Machine learning is a subset of artificial intelligence (AI) that enables computers to learn and make decisions from data without being explicitly programmed for every scenario...
 
-You: How can you help me with my daily tasks?
-🤖 JARVIS: I can assist you with several daily tasks: information research, general questions, and explanations of complex topics. Soon I'll be able to help with email management, calendar organization, data analysis, and workflow automation...
-```
+### Durante o Chat
 
-## 🏗 Project Structure
+- `help` - Mostrar comandos
+- `status` - Status do sistema  
+- `clear` - Limpar histórico
+- `capabilities` - Ver funcionalidades
+- `exit` - Sair
+
+## 📁 Estrutura do Projeto
 
 ```
 jarvis_ai/
-├── main.py                 # Main CLI application
+├── main.py                 # CLI principal
+├── requirements.txt        # Dependências
+├── .env.example           # Template configuração
 ├── config/
-│   ├── __init__.py
-│   └── settings.py         # Configuration management
+│   └── settings.py        # Configurações
 ├── core/
-│   ├── __init__.py
-│   ├── agent_router.py     # Intelligent agent routing
-│   └── memory.py           # Memory system (planned)
+│   ├── jarvis.py         # Classe principal
+│   └── router.py         # Roteamento LangGraph
 ├── agents/
-│   ├── __init__.py
-│   ├── base_agent.py       # Base agent class
-│   ├── search_agent.py     # General search and knowledge
-│   ├── email_agent.py      # Email management (planned)
-│   ├── calendar_agent.py   # Calendar integration (planned)
-│   ├── data_agent.py       # Dataset analysis (planned)
-│   └── workflow_agent.py   # Task automation (planned)
-├── tools/
-│   ├── __init__.py
-│   ├── mcp_tools.py        # MCP integrations (planned)
-│   └── data_tools.py       # Data processing tools (planned)
-├── memory/
-│   ├── __init__.py
-│   ├── vector_store.py     # Vector embeddings (planned)
-│   └── conversation_store.py # Conversation history (planned)
-├── requirements.txt
-├── .env.example
-└── README.md
+│   ├── base.py           # Classe base
+│   └── search.py         # Agente de busca
+└── tools/                # Integrações futuras
 ```
 
-## 🔧 Configuration Options
+## ⚙️ Configuração
 
-### Environment Variables
+### Variáveis Essenciais (.env)
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `GEMINI_API_KEY` | Google Gemini Pro API key | Yes | - |
-| `LANGFUSE_SECRET_KEY` | LangFuse monitoring secret | No | - |
-| `LANGFUSE_PUBLIC_KEY` | LangFuse monitoring public key | No | - |
-| `LANGFUSE_HOST` | LangFuse server URL | No | `https://cloud.langfuse.com` |
-| `OBSIDIAN_VAULT_PATH` | Path to Obsidian vault | No | - |
+```bash
+# Obrigatório
+GEMINI_API_KEY=your_key_here
 
-### Model Settings
+# Opcional (funcionalidades futuras)
+SPOTIFY_CLIENT_ID=your_spotify_id
+SPOTIFY_CLIENT_SECRET=your_spotify_secret
+GITHUB_TOKEN=your_github_token
+OBSIDIAN_VAULT_PATH=/path/to/vault
 
-- **Default Model**: `gemini-pro`
-- **Temperature**: `0.1` (focused responses)
-- **Max Tokens**: `4096`
-- **Embedding Model**: `all-MiniLM-L6-v2` (for future vector search)
-
-## 🚧 Planned Features (Roadmap)
-
-### Phase 1: Core Foundation ✅
-- [ ] Basic CLI interface
-- [ ] Agent routing system
-- [ ] Search agent with Gemini Pro
-- [ ] Configuration management
-
-### Phase 2: Data & Email Integration
-- [ ] **DataAgent**: CSV/Parquet analysis with pandas + LLM
-- [ ] **EmailAgent**: Gmail integration via MCP
-- [ ] **CalendarAgent**: Google Calendar management via MCP
-- [ ] Vector memory system with embeddings
-
-### Phase 3: Workflow Automation  
-- [ ] **WorkflowAgent**: Task automation and organization
-- [ ] Obsidian integration for note-taking
-- [ ] Google Sheets integration for financial tracking
-- [ ] Stand-up notes generation
-- [ ] Sprint planning assistance
-
-### Phase 4: Voice & Local Models
-- [ ] Speech-to-text (OpenAI Whisper)
-- [ ] Text-to-speech (Coqui TTS)
-- [ ] Local model support for privacy
-- [ ] UmbrelOS compatibility
-
-### Phase 5: Advanced Features
-- [ ] Multi-modal capabilities (image analysis)
-- [ ] Custom tool creation
-- [ ] Plugin system
-- [ ] Web interface
-- [ ] Mobile companion app
-
-## 🔌 Extensibility
-
-### Adding New Agents
-
-1. Inherit from `BaseAgent` class
-2. Implement `can_handle()` and `process()` methods
-3. Register agent in main application
-4. Add specific tools and capabilities
-
-Example:
-```python
-from agents.base_agent import BaseAgent, AgentResponse
-
-class MyCustomAgent(BaseAgent):
-    def __init__(self):
-        super().__init__("CustomAgent", "Handles custom tasks")
-    
-    def can_handle(self, query: str) -> float:
-        # Return confidence score 0.0-1.0
-        return 0.8 if "custom" in query.lower() else 0.0
-    
-    async def process(self, query: str, context=None) -> AgentResponse:
-        # Process the query and return response
-        return AgentResponse(content="Custom response")
+# Observabilidade (opcional)
+LANGFUSE_SECRET_KEY=your_langfuse_secret
+LANGFUSE_PUBLIC_KEY=your_langfuse_public
 ```
 
-### Adding New Tools
+## 🚀 Próximos Passos
 
-Tools can be added to agents to extend capabilities:
-- MCP connections for external APIs
-- Local file processing
-- Database integrations
-- Custom automation scripts
+### Fase 2 - Integrações (2-3 semanas)
+
+1. **EmailAgent** - Gmail API
+2. **MusicAgent** - Spotify API  
+3. **StandupAgent** - Azure DevOps + GitHub
+
+### Fase 3 - Automação (1-2 semanas)
+
+4. **PlanningAgent** - Assistente de sprints
+5. **Obsidian Integration** - Notas e documentação
+
+### Fase 4 - Voz e Local (futuro)
+
+6. **Interface de Voz** - Speech-to-text + TTS
+7. **Modelos Locais** - Ollama para privacidade
+8. **UmbrelOS** - Deploy em servidor local
 
 ## 🐛 Troubleshooting
 
-### Common Issues
+**uv não encontrado?**
 
-1. **"No module named 'agents'"**
-   - Ensure you're running from the project root directory
-   - Check that `__init__.py` files exist in all directories
+```bash
+# Instalar uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-2. **"Invalid API key"**
-   - Verify your Gemini API key in `.env` file
-   - Check that the key has proper permissions
+**Erro de import?**
 
-3. **Import errors**
-   - Update dependencies: `pip install -r requirements.txt --upgrade`
-   - Check Python version compatibility
+```bash
+# Rode a partir da raiz do projeto
+cd jarvis_ai
+uv run python main.py chat
+```
 
-### Getting Help
+**API key inválida?**
 
-- Check existing issues in the repository
-- Review configuration with `python main.py config`
-- Enable debug logging by modifying `logging.basicConfig(level=logging.DEBUG)`
+```bash
+uv run python main.py config  # Verificar configuração
+```
 
-## 🤝 Contributing
+**Dependências desatualizadas?**
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+```bash
+uv sync --upgrade  # Atualizar todas as dependências
+```
 
-### Development Guidelines
+**Problemas com ambiente?**
 
-- Follow PEP 8 style guidelines
-- Add type hints to new functions
-- Include docstrings for public methods
-- Write tests for new agents and tools
-- Update README for new features
+```bash
+# Recriar ambiente virtual
+rm -rf .venv
+uv sync
+```
 
-## 📄 License
+## 🤝 Contribuindo
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Este é um MVP focado em funcionamento básico. Contribuições são bem-vindas!
 
-## 🙏 Acknowledgments
+1. Fork o projeto
+2. Crie uma branch para sua feature
+3. Implemente seguindo o padrão dos agentes existentes
+4. Teste localmente
+5. Abra um PR
 
-- Inspired by Marvel's JARVIS (Just A Rather Very Intelligent System)
-- Built with [LangChain](https://github.com/langchain-ai/langchain)
-- Powered by [Google Gemini](https://ai.google.dev/)
-- CLI interface by [Typer](https://typer.tiangolo.com/) and [Rich](https://rich.readthedocs.io/)
+## 📊 Status Atual
 
-## 📊 Project Status
-
-- **Version**: 0.1.0 (Alpha)
-- **Status**: Active Development
-- **Python**: 3.8+ 
-- **License**: MIT
-- **Contributions**: Welcome
+- **Versão**: 0.1.0-MVP
+- **Python**: 3.12+
+- **Status**: ✅ Funcional para busca geral
+- **Próximo**: Integração Gmail + Spotify
 
 ---
 
-**"Sometimes you gotta run before you can walk."** - Tony Stark
+*"Sometimes you gotta run before you can walk." - Tony Stark*
 
-*Start building your own AI assistant today!*
+**🚀 Comece hoje mesmo seu assistente de IA!**
