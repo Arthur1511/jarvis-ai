@@ -1,14 +1,15 @@
-# Requirements for Jarvis AI
+# requirements.txt básico
 langchain>=0.1.0
-langchain-google-genai>=1.0.0
+langgraph>=0.0.40
 langfuse>=2.0.0
+google-generativeai>=0.3.0
 typer[all]>=0.9.0
 rich>=13.0.0
-sqlite3
-sentence-transformers>=2.2.0
-pandas>=2.0.0
-pyarrow>=10.0.0
 python-dotenv>=1.0.0
-asyncio
-httpx>=0.25.0
-pydantic>=2.0.0
+SQLAlchemy>=2.0.0
+spotipy>=2.22.1          # Spotify API
+google-auth>=2.17.0      # Gmail API
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.2.0
+googleapis-common-protos>=1.56.0
+PyGithub>=1.58.0         # GitHub API

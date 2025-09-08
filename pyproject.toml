@@ -1,0 +1,146 @@
+[project]
+name = "jarvis-ai"
+version = "0.1.0"
+description = "Assistente de IA inspirado no Jarvis do Homem de Ferro"
+authors = [
+    {name = "Você", email = "seu@email.com"},
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+keywords = ["ai", "assistant", "jarvis", "langchain", "gemini"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    # Core AI & Agents
+    "langchain>=0.1.0",
+    "langgraph>=0.0.55",
+    "langfuse>=2.0.0",
+    "google-generativeai>=0.3.0",
+    
+    # CLI Interface
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    
+    # Configuration & Storage
+    "python-dotenv>=1.0.0",
+    "sqlalchemy>=2.0.0",
+    
+    # API Integrations
+    "spotipy>=2.22.1",                    # Spotify API
+    "google-auth>=2.17.0",                # Gmail API
+    "google-auth-oauthlib>=1.0.0",
+    "google-auth-httplib2>=0.2.0",
+    "googleapis-common-protos>=1.56.0",
+    "google-api-python-client>=2.0.0",
+    "PyGithub>=1.58.0",                   # GitHub API
+    
+    # Azure DevOps (optional)
+    "azure-devops<=7.1.0",
+    
+    # Obsidian integration
+    "watchdog>=3.0.0",                    # File watching
+    "markdown>=3.5.0",                    # Markdown parsing
+    
+    # Utilities
+    "requests>=2.31.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+voice = [
+    "openai-whisper>=20231117",           # Speech-to-text
+    "TTS>=0.22.0",                        # Text-to-speech
+    "sounddevice>=0.4.6",                 # Audio I/O
+    "pyaudio>=0.2.11",                    # Audio interface
+]
+
+local = [
+    "ollama>=0.1.0",                      # Local models
+    "sentence-transformers>=2.2.2",      # Embeddings
+    "faiss-cpu>=1.7.4",                  # Vector search
+]
+
+[project.urls]
+Homepage = "https://github.com/Arthur1511/jarvis-ai"
+Repository = "https://github.com/Arthur1511/jarvis-ai.git"
+Documentation = "https://github.com/Arthur1511/jarvis-ai#readme"
+"Bug Tracker" = "https://github.com/Arthur1511/jarvis-ai/issues"
+
+[project.scripts]
+jarvis = "main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agents", "config", "core", "memory", "tools", "utils"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # Directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["jarvis_ai", "config", "core", "agents", "tools", "memory", "utils"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = [
+    "tests",
+]
+asyncio_mode = "auto"
