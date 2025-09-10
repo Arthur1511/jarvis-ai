@@ -2,7 +2,6 @@
 Agentes do Jarvis AI Assistant
 """
 
-from .base import BaseAgent, AgentResponse, AgentCapability
-from .search import SearchAgent
+from .search import create_search_agent, get_search_agent_info
 
-__all__ = ["BaseAgent", "AgentResponse", "AgentCapability", "SearchAgent"]
+__all__ = ["create_search_agent", "get_search_agent_info"]

@@ -1,90 +1,108 @@
 """
-Configurações centralizadas do Jarvis AI Assistant
+Configurações centralizadas do Jarvis AI Assistant usando Pydantic V2.
 """
 
-import os
-from typing import Optional
-from pydantic import BaseSettings, validator
 from pathlib import Path
+from typing import Optional
 
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Configuração padrão para todos os modelos que precisam ler do .env
+ENV_CONFIG = SettingsConfigDict(env_file=".env", extra='ignore')
+
+
+# --- Modelos de Configuração por Serviço ---
+
+class AiModelConfig(BaseSettings):
+    """Configurações de comportamento dos modelos de IA"""
+    model_config = ENV_CONFIG
+    temperature: float = Field(0.1, description="Temperatura para a geração do modelo", alias="MODEL_TEMPERATURE")
+    max_tokens: int = Field(4096, description="Máximo de tokens na resposta do modelo", alias="MODEL_MAX_TOKENS")
+
+class ObservabilitySettings(BaseSettings):
+    """Configurações de Observabilidade (LangFuse)"""
+    model_config = ENV_CONFIG
+    secret_key: Optional[str] = Field(None, alias="LANGFUSE_SECRET_KEY")
+    public_key: Optional[str] = Field(None, alias="LANGFUSE_PUBLIC_KEY")
+    host: str = Field("https://cloud.langfuse.com", alias="LANGFUSE_HOST")
+
+    @property
+    def is_enabled(self) -> bool:
+        return bool(self.secret_key and self.public_key)
+
+class SpotifySettings(BaseSettings):
+    """Configurações da integração com Spotify"""
+    model_config = ENV_CONFIG
+    client_id: Optional[str] = Field(None, alias="SPOTIFY_CLIENT_ID")
+    client_secret: Optional[str] = Field(None, alias="SPOTIFY_CLIENT_SECRET")
+    redirect_uri: str = Field("http://localhost:8888/callback", alias="SPOTIFY_REDIRECT_URI")
+
+    @property
+    def is_enabled(self) -> bool:
+        return bool(self.client_id and self.client_secret)
+
+class GmailSettings(BaseSettings):
+    """Configurações da integração com Gmail"""
+    model_config = ENV_CONFIG
+    credentials_path: Path = Path("credentials/gmail_credentials.json")
+    token_path: Path = Path("credentials/gmail_token.json")
+
+    @property
+    def is_enabled(self) -> bool:
+        return self.credentials_path.exists()
+
+class GitHubSettings(BaseSettings):
+    """Configurações da integração com GitHub"""
+    model_config = ENV_CONFIG
+    token: Optional[str] = Field(None, alias="GITHUB_TOKEN")
+    username: Optional[str] = Field(None, alias="GITHUB_USERNAME")
+
+    @property
+    def is_enabled(self) -> bool:
+        return bool(self.token and self.username)
+
+class ObsidianSettings(BaseSettings):
+    """Configurações da integração com Obsidian"""
+    model_config = ENV_CONFIG
+    vault_path: Optional[Path] = Field(None, alias="OBSIDIAN_VAULT_PATH")
+
+    @field_validator("vault_path", mode='before')
+    @classmethod
+    def validate_path(cls, v):
+        if not v:
+            return None
+        path = Path(v)
+        if not path.exists():
+            print(f"Aviso: O caminho para o vault do Obsidian não existe: {v}")
+        return path
+
+    @property
+    def is_enabled(self) -> bool:
+        return bool(self.vault_path and self.vault_path.exists())
+
+
+# --- Classe Principal de Configurações ---
 
 class Settings(BaseSettings):
-    """Configurações do sistema"""
+    """Agrega todas as configurações do sistema"""
+    model_config = ENV_CONFIG
 
-    # AI Models
-    gemini_api_key: str
+    # Segredos e chaves de API de primeiro nível
+    gemini_api_key: str = Field(..., alias="GEMINI_API_KEY")
 
-    # Observability
-    langfuse_secret_key: Optional[str] = None
-    langfuse_public_key: Optional[str] = None
-    langfuse_host: str = "https://cloud.langfuse.com"
+    # Grupos de configuração aninhados
+    ai_model_config: AiModelConfig = Field(default_factory=AiModelConfig)
+    observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
+    spotify: SpotifySettings = Field(default_factory=SpotifySettings)
+    gmail: GmailSettings = Field(default_factory=GmailSettings)
+    github: GitHubSettings = Field(default_factory=GitHubSettings)
+    obsidian: ObsidianSettings = Field(default_factory=ObsidianSettings)
 
-    # Spotify
-    spotify_client_id: Optional[str] = None
-    spotify_client_secret: Optional[str] = None
-    spotify_redirect_uri: str = "http://localhost:8888/callback"
-
-    # Gmail
-    gmail_credentials_path: Path = Path("credentials/gmail_credentials.json")
-    gmail_token_path: Path = Path("credentials/gmail_token.json")
-
-    # GitHub
-    github_token: Optional[str] = None
-    github_username: Optional[str] = None
-
-    # Azure DevOps
-    azure_devops_org: Optional[str] = None
-    azure_devops_project: Optional[str] = None
-    azure_devops_pat: Optional[str] = None
-
-    # Obsidian
-    obsidian_vault_path: Optional[Path] = None
-
-    # Database
+    # Configurações gerais
     database_url: str = "sqlite:///jarvis.db"
-
-    # Logging
     log_level: str = "INFO"
 
-    # Model settings
-    temperature: float = 0.1
-    max_tokens: int = 4096
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
-    @validator("obsidian_vault_path", pre=True)
-    def validate_obsidian_path(cls, v):
-        if v and not Path(v).exists():
-            print(f"Warning: Obsidian vault path does not exist: {v}")
-        return Path(v) if v else None
-
-    @property
-    def is_langfuse_enabled(self) -> bool:
-        """Verifica se LangFuse está configurado"""
-        return bool(self.langfuse_secret_key and self.langfuse_public_key)
-
-    @property
-    def is_spotify_enabled(self) -> bool:
-        """Verifica se Spotify está configurado"""
-        return bool(self.spotify_client_id and self.spotify_client_secret)
-
-    @property
-    def is_gmail_enabled(self) -> bool:
-        """Verifica se Gmail está configurado"""
-        return self.gmail_credentials_path.exists()
-
-    @property
-    def is_github_enabled(self) -> bool:
-        """Verifica se GitHub está configurado"""
-        return bool(self.github_token and self.github_username)
-
-    @property
-    def is_obsidian_enabled(self) -> bool:
-        """Verifica se Obsidian está configurado"""
-        return bool(self.obsidian_vault_path and self.obsidian_vault_path.exists())
-
-
-# Instância global das configurações
+# --- Instância Global ---
 settings = Settings()

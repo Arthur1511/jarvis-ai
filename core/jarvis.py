@@ -2,35 +2,55 @@
 Classe principal do Jarvis AI Assistant
 """
 
-import asyncio
-from typing import Dict, Any, Optional, List
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langfuse import Langfuse
-from langfuse.decorators import observe
+from langgraph_supervisor import create_supervisor
+from pydantic import SecretStr
 
+# Importa os construtores e metadados dos agentes
+from agents.search import create_search_agent, get_search_agent_info
 from config.settings import settings
-from .router import AgentRouter
-from agents.base import AgentResponse
-
+from langfuse.langchain import CallbackHandler
 
 class JarvisAI:
     """Classe principal do assistente Jarvis"""
 
     def __init__(self):
-        self.router = AgentRouter()
         self.conversation_history: List[Dict[str, Any]] = []
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Setup LangFuse se configurado
+        # Setup LangFuse PRIMEIRO para que os handlers o encontrem
         self.langfuse = None
-        if settings.is_langfuse_enabled:
+        if settings.observability.is_enabled:
             self.langfuse = Langfuse(
-                secret_key=settings.langfuse_secret_key,
-                public_key=settings.langfuse_public_key,
-                host=settings.langfuse_host,
+                secret_key=str(settings.observability.secret_key),
+                public_key=str(settings.observability.public_key),
+                host=str(settings.observability.host),
             )
+
+        # Inicializa agentes e seus metadados
+        self.agents = [
+            create_search_agent(),
+            # Adicione novos agentes aqui como tupla
+        ]
+        self.agents_metadata = [
+            get_search_agent_info(),
+            # "music": get_music_agent_info(),
+        ]
+
+        # LLM para o supervisor
+        supervisor_llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            api_key=SecretStr(settings.gemini_api_key),
+            temperature=settings.ai_model_config.temperature,
+        )
+
+        # Cria grafo supervisor com os runnables dos agentes
+        self.graph = create_supervisor(model=supervisor_llm, agents=self.agents).compile()
 
         # Setup logging
         logging.basicConfig(
@@ -38,48 +58,60 @@ class JarvisAI:
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
         self.logger = logging.getLogger(__name__)
-
         self.logger.info("Jarvis AI iniciado com sucesso")
 
-    @observe(name="jarvis_process_query")
     async def process_query(
-        self, query: str, context: Optional[Dict[str, Any]] = None
-    ) -> AgentResponse:
+        self,
+        query: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         Processa uma query do usuário
-
-        Args:
-            query: A pergunta/comando do usuário
-            context: Contexto adicional (histórico, preferências, etc.)
-
-        Returns:
-            AgentResponse: Resposta processada
         """
         try:
             self.logger.info(f"Processando query: {query[:50]}...")
-
-            # Adicionar contexto do histórico recente
             enhanced_context = self._build_context(context)
 
-            # Rotear query para agente apropriado
-            response = await self.router.route_query(query, enhanced_context)
+            # Executa o grafo supervisor
+            response_data = self.graph.invoke(
+                {"messages": [("user", query)], "context": enhanced_context}
+            )
 
-            # Salvar no histórico
-            self._save_to_history(query, response)
+            # A resposta final geralmente está na chave 'messages' do dicionário retornado
+            final_message = response_data.get("messages", ["(sem resposta)"])[-1]
+            final_content = (
+                final_message.content
+                if hasattr(final_message, "content")
+                else str(final_message)
+            )
 
-            self.logger.info(f"Query processada com confiança: {response.confidence}")
-            return response
+            # Monta uma resposta estruturada para uso interno
+            processed_response = {
+                "content": final_content,
+                "confidence": 0.9,  # Confiança é alta pois o supervisor escolheu um agente
+                "metadata": {"raw_response": response_data},
+            }
+
+            self._save_to_history(query, processed_response)
+            self.logger.info(f"Query processada com sucesso.")
+
+            # Forçar o envio dos dados para o Langfuse
+            if self.langfuse:
+                self.langfuse.flush()
+
+            return processed_response
 
         except Exception as e:
             self.logger.error(f"Erro ao processar query: {e}", exc_info=True)
-            return AgentResponse(
-                content=f"Desculpe, encontrei um erro interno: {str(e)}",
-                confidence=0.0,
-                metadata={"error": str(e)},
-            )
+            return {
+                "content": f"Desculpe, encontrei um erro interno: {str(e)}",
+                "confidence": 0.0,
+                "metadata": {"error": str(e)},
+            }
 
     def _build_context(
-        self, additional_context: Optional[Dict[str, Any]] = None
+        self,
+        additional_context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Constrói contexto enriquecido para a query"""
         context = {
@@ -87,54 +119,45 @@ class JarvisAI:
             "timestamp": datetime.now().isoformat(),
             "conversation_length": len(self.conversation_history),
         }
-
-        # Adicionar histórico recente (últimas 3 interações)
         if self.conversation_history:
             recent_history = self.conversation_history[-3:]
             context["recent_queries"] = [item["query"] for item in recent_history]
             context["recent_responses"] = [
                 item["response_summary"] for item in recent_history
             ]
-
-        # Adicionar contexto adicional
         if additional_context:
             context.update(additional_context)
-
         return context
 
-    def _save_to_history(self, query: str, response: AgentResponse):
+    def _save_to_history(self, query: str, response: Dict[str, Any]):
         """Salva interação no histórico da conversa"""
+        content = response.get("content", "")
         history_item = {
             "timestamp": datetime.now().isoformat(),
             "query": query,
-            "response_summary": response.content[:100] + "..."
-            if len(response.content) > 100
-            else response.content,
-            "confidence": response.confidence,
-            "metadata": response.metadata,
+            "response_summary": content[:100] + "..." 
+            if len(content) > 100
+            else content,
+            "confidence": response.get("confidence", 0.0),
+            "metadata": response.get("metadata", {}),
         }
-
         self.conversation_history.append(history_item)
-
-        # Limitar histórico (manter últimas 50 interações)
         if len(self.conversation_history) > 50:
             self.conversation_history = self.conversation_history[-50:]
 
     def get_system_status(self) -> Dict[str, Any]:
         """Retorna status do sistema e agentes"""
-        agents_info = self.router.get_available_agents()
-
         return {
             "session_id": self.session_id,
             "conversation_length": len(self.conversation_history),
-            "available_agents": list(agents_info.keys()),
-            "agents_details": agents_info,
+            "available_agents": list(self.agents.keys()),
+            "agents_details": self.agents_metadata,
             "integrations": {
-                "langfuse": settings.is_langfuse_enabled,
-                "spotify": settings.is_spotify_enabled,
-                "gmail": settings.is_gmail_enabled,
-                "github": settings.is_github_enabled,
-                "obsidian": settings.is_obsidian_enabled,
+                "langfuse": settings.observability.is_enabled,
+                "spotify": settings.spotify.is_enabled,
+                "gmail": settings.gmail.is_enabled,
+                "github": settings.github.is_enabled,
+                "obsidian": settings.obsidian.is_enabled,
             },
             "last_interaction": (
                 self.conversation_history[-1]["timestamp"]
@@ -145,31 +168,24 @@ class JarvisAI:
 
     def get_capabilities(self) -> str:
         """Retorna descrição das capacidades atuais"""
+        # Esta função pode ser melhorada para buscar as descrições dos metadados
         capabilities = [
             "🔍 **Busca e Conhecimento Geral**",
             "   • Responder perguntas sobre qualquer tópico",
             "   • Explicar conceitos complexos",
-            "   • Fornecer definições e esclarecimentos",
             "",
             "🚧 **Em Desenvolvimento**",
-            "   • 📧 Gerenciamento de emails (Gmail)",
             "   • 🎵 Controle de música (Spotify)",
-            "   • 📝 Geração de notas de standup",
-            "   • 📋 Planejamento de sprints",
-            "   • 📚 Integração com Obsidian",
         ]
-
         return "\n".join(capabilities)
 
     async def health_check(self) -> Dict[str, Any]:
         """Verifica saúde do sistema"""
         try:
-            # Teste simples com agente de busca
             test_response = await self.process_query("teste de conectividade")
-
             return {
                 "status": "healthy",
-                "agents_responding": test_response.confidence > 0,
+                "agents_responding": test_response.get("confidence", 0) > 0,
                 "langfuse_connected": self.langfuse is not None,
                 "session_active": len(self.conversation_history) >= 0,
                 "timestamp": datetime.now().isoformat(),
@@ -190,9 +206,6 @@ class JarvisAI:
     async def shutdown(self):
         """Shutdown gracioso do sistema"""
         self.logger.info("Iniciando shutdown do Jarvis...")
-
-        # Flush LangFuse se ativo
         if self.langfuse:
             self.langfuse.flush()
-
         self.logger.info("Jarvis desligado com sucesso")

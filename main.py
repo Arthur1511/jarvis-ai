@@ -5,21 +5,20 @@ Interface CLI principal do Jarvis AI Assistant
 import asyncio
 import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.text import Text
 from rich.prompt import Prompt
 from rich.table import Table
-from rich.markdown import Markdown
+from rich.text import Text
 
 # Adicionar o diretório raiz ao path para imports
 sys.path.append(str(Path(__file__).parent))
 
-from core.jarvis import JarvisAI
 from config.settings import settings
+from core.jarvis import JarvisAI
 
 app = typer.Typer(
     name="jarvis",
@@ -52,7 +51,7 @@ def display_help():
     help_content = """
 **Comandos disponíveis durante a conversa:**
 • `exit`, `quit`, `sair` - Sair do chat
-• `help`, `ajuda` - Mostrar esta ajuda  
+• `help`, `ajuda` - Mostrar esta ajuda
 • `status` - Verificar status do sistema
 • `clear` - Limpar histórico da conversa
 • `capabilities` - Mostrar capacidades atuais
@@ -98,7 +97,7 @@ async def _chat_async():
 
     console.print("[green]✅ Jarvis online e pronto![/green]")
     console.print(
-        "[dim]Digite 'help' para ver comandos disponíveis ou 'exit' para sair[/dim]"
+        "[dim]Digite 'help' para ver comandos disponíveis ou 'exit' para sair" 
     )
     console.print()
 
@@ -106,9 +105,7 @@ async def _chat_async():
     while True:
         try:
             # Prompt do usuário
-            user_input = Prompt.ask(
-                "[bold blue]Você[/bold blue]", console=console
-            ).strip()
+            user_input = Prompt.ask("[bold blue]Você[/bold blue]", console=console).strip()
 
             # Comandos especiais
             if user_input.lower() in ["exit", "quit", "sair"]:
@@ -149,11 +146,11 @@ async def _chat_async():
             jarvis_text.append("🤖 JARVIS", style="bold cyan")
 
             console.print(jarvis_text, end=": ")
-            console.print(response.content)
+            console.print(response.get("content", "Não foi possível processar a resposta."))
 
             # Mostrar metadata em modo debug (se confiança baixa)
-            if response.confidence < 0.5:
-                console.print(f"[dim]Confiança: {response.confidence:.2f}[/dim]")
+            if response.get("confidence", 1.0) < 0.5:
+                console.print(f"[dim]Confiança: {response.get('confidence'):.2f}[/dim]")
 
             console.print()
 
@@ -173,9 +170,7 @@ def display_status(status: dict):
     table.add_column("Detalhes", style="dim")
 
     # Status geral
-    table.add_row(
-        "🤖 Sistema", "[green]✅ Online[/green]", f"Sessão: {status['session_id']}"
-    )
+    table.add_row("🤖 Sistema", "[green]✅ Online[/green]", f"Sessão: {status['session_id']}")
 
     table.add_row(
         "💬 Conversa",
@@ -204,9 +199,7 @@ def display_status(status: dict):
 @app.command()
 def config():
     """⚙️ Verifica configuração do sistema"""
-    console.print(
-        Panel("[bold]Verificação de Configuração[/bold]", border_style="blue")
-    )
+    console.print(Panel("[bold]Verificação de Configuração[/bold]", border_style="blue"))
 
     # Verificar variáveis essenciais
     config_table = Table()
@@ -215,21 +208,17 @@ def config():
     config_table.add_column("Valor/Nota", style="dim")
 
     # Gemini API
-    gemini_status = (
-        "✅ Configurado" if settings.gemini_api_key else "❌ Não configurado"
-    )
+    gemini_status = "✅ Configurado" if settings.gemini_api_key else "❌ Não configurado"
     gemini_color = "green" if settings.gemini_api_key else "red"
     config_table.add_row(
         "Gemini API Key",
         f"[{gemini_color}]{gemini_status}[/{gemini_color}]",
-        "***" + settings.gemini_api_key[-10:]
-        if settings.gemini_api_key
-        else "Necessário no .env",
+        "***" + settings.gemini_api_key[-4:] if settings.gemini_api_key else "Necessário no .env",
     )
 
     # LangFuse
-    langfuse_status = "✅ Ativo" if settings.is_langfuse_enabled else "⏸️ Inativo"
-    langfuse_color = "green" if settings.is_langfuse_enabled else "yellow"
+    langfuse_status = "✅ Ativo" if settings.observability.is_enabled else "⏸️ Inativo"
+    langfuse_color = "green" if settings.observability.is_enabled else "yellow"
     config_table.add_row(
         "LangFuse (Observabilidade)",
         f"[{langfuse_color}]{langfuse_status}[/{langfuse_color}]",
@@ -237,14 +226,14 @@ def config():
     )
 
     # Outras integrações
-    integrations = [
-        ("Spotify", settings.is_spotify_enabled),
-        ("Gmail", settings.is_gmail_enabled),
-        ("GitHub", settings.is_github_enabled),
-        ("Obsidian", settings.is_obsidian_enabled),
-    ]
+    integrations = {
+        "Spotify": settings.spotify.is_enabled,
+        "Gmail": settings.gmail.is_enabled,
+        "GitHub": settings.github.is_enabled,
+        "Obsidian": settings.obsidian.is_enabled,
+    }
 
-    for name, enabled in integrations:
+    for name, enabled in integrations.items():
         status = "✅ Configurado" if enabled else "⏸️ Não configurado"
         color = "green" if enabled else "yellow"
         config_table.add_row(
@@ -258,7 +247,7 @@ def config():
     # Dicas de configuração
     if not settings.gemini_api_key:
         console.print(
-            "\n[red]⚠️ Configure GEMINI_API_KEY no arquivo .env para usar o Jarvis[/red]"
+            "\n[red]⚠️ Configure GEMINI_API_KEY no arquivo .env para usar o Jarvis" 
         )
 
     console.print(f"\n[dim]Arquivo de configuração: .env[/dim]")
@@ -328,7 +317,7 @@ def version():
 **Jarvis AI Assistant v0.1.0**
 
 - 🤖 Agente de busca com Gemini Pro
-- 🔀 Roteamento inteligente com LangGraph  
+- 🔀 Roteamento inteligente com LangGraph
 - 📊 Observabilidade com LangFuse
 - 💬 Interface CLI interativa
 

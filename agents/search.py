@@ -1,133 +1,80 @@
 """
-Agente de busca e conhecimento geral usando Gemini Pro
+Construtor para o agente de busca e conhecimento geral usando LangChain.
 """
 
-from typing import Dict, Any, Optional, List
-import google.generativeai as genai
-from langfuse.decorators import observe
+from langgraph.prebuilt import create_react_agent
+from langchain.prompts import ChatPromptTemplate
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langfuse.langchain import CallbackHandler
+from pydantic import SecretStr
 
-from .base import BaseAgent, AgentResponse, AgentCapability
 from config.settings import settings
 
 
-class SearchAgent(BaseAgent):
-    """Agente para busca de informações e conhecimento geral"""
+def create_search_agent():
+    """Cria e configura o agente de busca reativo.
 
-    def __init__(self):
-        super().__init__(
-            name="SearchAgent",
-            capabilities=[AgentCapability.SEARCH],
-            description="Busca informações gerais e responde perguntas sobre conhecimento geral",
-        )
+    Returns:
+        Runnable: O agente reativo pronto para ser usado no LangGraph.
+    """
+    # Configura os callbacks para observabilidade
+    # Configura os callbacks para observabilidade
+    callbacks = [CallbackHandler()] if settings.observability.is_enabled else None
 
-        # Configurar Gemini
-        genai.configure(api_key=settings.gemini_api_key)
-        self.model = genai.GenerativeModel("gemini-pro")
+    # Instancia o modelo diretamente, que é a forma correta e robusta
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-1.5-flash",
+        api_key=SecretStr(settings.gemini_api_key),
+        temperature=settings.ai_model_config.temperature,
+        max_tokens=settings.ai_model_config.max_tokens,
+        callbacks=callbacks,
+    )
 
-        # Palavras-chave que indicam busca/pesquisa
-        self.search_keywords = [
-            "buscar",
-            "procurar",
-            "pesquisar",
-            "encontrar",
-            "descobrir",
-            "explicar",
-            "definir",
-            "o que é",
-            "como",
-            "quando",
-            "onde",
-            "por que",
-            "porque",
-            "qual",
-            "quem",
-            "info",
-            "informação",
-            "sobre",
-            "acerca",
-            "a respeito",
-            "falar sobre",
-            "me conte",
-        ]
+    # Ferramentas do agente
+    tools = [DuckDuckGoSearchRun()]
 
-    async def can_handle(
-        self, query: str, context: Optional[Dict[str, Any]] = None
-    ) -> float:
-        """Determina se pode processar a query"""
-        query_lower = query.lower()
+    # Este prompt é um template padrão para agentes ReAct, com a persona do JARVIS adicionada.
+    template = """Você é JARVIS, o assistente de IA inspirado no Homem de Ferro. Responda de forma clara, concisa e útil.
+Você tem acesso às seguintes ferramentas:
 
-        # Verifica palavras-chave de busca
-        search_indicators = sum(
-            1 for keyword in self.search_keywords if keyword in query_lower
-        )
+{tools}
 
-        # Verifica se não é claramente para outro agente
-        music_keywords = ["tocar", "música", "playlist", "spotify", "som"]
-        email_keywords = ["email", "e-mail", "gmail", "mensagem", "correio"]
-        standup_keywords = ["standup", "stand-up", "reunião", "daily"]
+Use o seguinte formato:
 
-        other_agent_indicators = (
-            sum(1 for keyword in music_keywords if keyword in query_lower)
-            + sum(1 for keyword in email_keywords if keyword in query_lower)
-            + sum(1 for keyword in standup_keywords if keyword in query_lower)
-        )
+Question: A pergunta que você deve responder
+Thought: Você deve sempre pensar sobre o que fazer
+Action: A ação a ser tomada, deve ser uma de [{tool_names}]
+Action Input: A entrada para a ação
+Observation: O resultado da ação
+... (Este padrão de Thought/Action/Action Input/Observation pode se repetir N vezes)
+Thought: Eu agora sei a resposta final
+Final Answer: A resposta final para a pergunta original
 
-        # Se tem indicadores de busca e poucos indicadores de outros agentes
-        if search_indicators > 0 and other_agent_indicators == 0:
-            return min(0.9, 0.3 + (search_indicators * 0.15))
+Comece!
 
-        # Se não tem indicadores específicos de outros agentes, pode ser busca geral
-        if other_agent_indicators == 0:
-            return 0.5  # Confiança média para queries gerais
+Question: {input}
+Thought:{agent_scratchpad}"""
+    prompt_template = ChatPromptTemplate.from_template(template)
 
-        return 0.1  # Baixa confiança se parece ser para outro agente
+    # Criar agente reativo
+    react_agent = create_react_agent(
+        model=llm,
+        tools=tools,
+        prompt=prompt_template,
+        name="SearchAgent",
+    )
 
-    @observe(name="search_agent_process")
-    async def process(
-        self, query: str, context: Optional[Dict[str, Any]] = None
-    ) -> AgentResponse:
-        """Processa a query usando Gemini Pro"""
-        try:
-            # Construir prompt com contexto
-            system_prompt = """Você é JARVIS, o assistente de IA inspirado no Homem de Ferro.
-Responda de forma clara, concisa e útil. Mantenha um tom profissional mas amigável.
-Se a pergunta for sobre algo muito específico ou técnico, forneça exemplos práticos quando possível."""
+    return react_agent
 
-            # Adicionar contexto se disponível
-            full_prompt = f"{system_prompt}\n\nPergunta: {query}"
-            if context:
-                full_prompt += f"\n\nContexto adicional: {context}"
-
-            # Gerar resposta
-            response = self.model.generate_content(
-                full_prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=settings.temperature,
-                    max_output_tokens=settings.max_tokens,
-                ),
-            )
-
-            return AgentResponse(
-                content=response.text,
-                confidence=0.8,
-                metadata={
-                    "model": "gemini-pro",
-                    "tokens_used": len(response.text.split()) * 1.3,  # Aproximação
-                },
-            )
-
-        except Exception as e:
-            return AgentResponse(
-                content=f"Desculpe, encontrei um erro ao processar sua pergunta: {str(e)}",
-                confidence=0.0,
-                metadata={"error": str(e)},
-            )
-
-    def get_capabilities_description(self) -> str:
-        """Descrição das capacidades para o usuário"""
-        return """Posso ajudar com:
-• Responder perguntas gerais sobre qualquer tópico
+def get_search_agent_info():
+    """Retorna os metadados do agente de busca."""
+    return {
+        "description": "Busca informações gerais e responde perguntas sobre conhecimento geral",
+        "capabilities_description": """Posso ajudar com:\n• Responder perguntas gerais sobre qualquer tópico
 • Explicar conceitos complexos de forma simples
 • Fornecer informações sobre tecnologia, ciência, história, etc.
 • Resolver dúvidas e esclarecer definições
-• Dar sugestões e recomendações gerais"""
+• Dar sugestões e recomendações gerais""",
+        "capabilities": ["search"],
+    }
