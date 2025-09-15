@@ -27,16 +27,18 @@ class JarvisAI:
         self.langfuse = None
         if settings.observability.is_enabled:
             self.langfuse = Langfuse(
-                secret_key=str(settings.observability.secret_key),
                 public_key=str(settings.observability.public_key),
                 host=str(settings.observability.host),
             )
 
         # Inicializa agentes e seus metadados
+        search_agent, search_tools = create_search_agent()
         self.agents = [
-            create_search_agent(),
+            search_agent,
             # Adicione novos agentes aqui como tupla
         ]
+        self.all_tools = search_tools
+
         self.agents_metadata = [
             get_search_agent_info(),
             # "music": get_music_agent_info(),
@@ -50,7 +52,28 @@ class JarvisAI:
         )
 
         # Cria grafo supervisor com os runnables dos agentes
-        self.graph = create_supervisor(model=supervisor_llm, agents=self.agents).compile()
+        self.graph = create_supervisor(
+            model=supervisor_llm,
+            agents=self.agents,
+            prompt=(
+                f"""
+                You are a supervisor managing {len(self.agents)} agents:
+                {', '.join([meta['name'] for meta in self.agents_metadata])}
+                Each agent has specific capabilities:
+                {chr(10).join([f"- {meta['name']}: {meta['description']}" for meta in self.agents_metadata])}
+                You must intelligently route user queries to the most appropriate agent based on their capabilities.
+                Use the following guidelines:
+                - Analyze the user's query and determine which agent is best suited to handle it.
+                - If multiple agents could handle the query, choose the one with the highest expertise.
+                - If no agent is suitable, respond with "I'm sorry, I cannot assist with that request."
+                - Keep track of the conversation context and history to make informed decisions.
+                - Assign work to one agent at a time, do not call agents in parallel.
+                - Do not do any work yourself.
+                """
+            ),
+            add_handoff_back_messages=True,
+            output_mode="full_history",
+        ).compile()
 
         # Setup logging
         logging.basicConfig(
