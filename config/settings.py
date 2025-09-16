@@ -17,9 +17,17 @@ ENV_CONFIG = SettingsConfigDict(env_file=".env", extra='ignore')
 class AiModelConfig(BaseSettings):
     """Configurações de comportamento dos modelos de IA"""
     model_config = ENV_CONFIG
-    temperature: float = Field(0.1, description="Temperatura para a geração do modelo", alias="MODEL_TEMPERATURE")
+    temperature: float = Field(0.5, description="Temperatura para a geração do modelo", alias="MODEL_TEMPERATURE")
     max_tokens: int = Field(4096, description="Máximo de tokens na resposta do modelo", alias="MODEL_MAX_TOKENS")
 
+class TavilySettings(BaseSettings):
+    """Configurações da integração com Tavily Search"""
+    model_config = ENV_CONFIG
+    api_key: Optional[str] = Field(None, alias="TAVILY_API_KEY")
+
+    @property
+    def is_enabled(self) -> bool:
+        return bool(self.api_key)
 class ObservabilitySettings(BaseSettings):
     """Configurações de Observabilidade (LangFuse)"""
     model_config = ENV_CONFIG
@@ -94,6 +102,7 @@ class Settings(BaseSettings):
     # Grupos de configuração aninhados
     ai_model_config: AiModelConfig = Field(default_factory=AiModelConfig)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
+    tavily: TavilySettings = Field(default_factory=TavilySettings)
     spotify: SpotifySettings = Field(default_factory=SpotifySettings)
     gmail: GmailSettings = Field(default_factory=GmailSettings)
     github: GitHubSettings = Field(default_factory=GitHubSettings)

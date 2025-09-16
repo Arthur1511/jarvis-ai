@@ -6,6 +6,11 @@ import asyncio
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Carrega as variáveis de ambiente do arquivo .env no início da aplicação
+load_dotenv()
+
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
@@ -227,6 +232,7 @@ def config():
 
     # Outras integrações
     integrations = {
+        "Tavily": settings.tavily.is_enabled,
         "Spotify": settings.spotify.is_enabled,
         "Gmail": settings.gmail.is_enabled,
         "GitHub": settings.github.is_enabled,
@@ -250,7 +256,7 @@ def config():
             "\n[red]⚠️ Configure GEMINI_API_KEY no arquivo .env para usar o Jarvis" 
         )
 
-    console.print(f"\n[dim]Arquivo de configuração: .env[/dim]")
+    console.print("\n[dim]Arquivo de configuração: .env[/dim]")
     console.print(f"[dim]Banco de dados: {settings.database_url}[/dim]")
 
 

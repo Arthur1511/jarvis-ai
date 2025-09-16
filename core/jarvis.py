@@ -8,13 +8,15 @@ from typing import Any, Dict, List, Optional
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langfuse import Langfuse
+from langfuse.langchain import CallbackHandler
+from langgraph.errors import GraphRecursionError
 from langgraph_supervisor import create_supervisor
 from pydantic import SecretStr
 
 # Importa os construtores e metadados dos agentes
 from agents.search import create_search_agent, get_search_agent_info
 from config.settings import settings
-from langfuse.langchain import CallbackHandler
+
 
 class JarvisAI:
     """Classe principal do assistente Jarvis"""
@@ -57,18 +59,32 @@ class JarvisAI:
             agents=self.agents,
             prompt=(
                 f"""
-                You are a supervisor managing {len(self.agents)} agents:
-                {', '.join([meta['name'] for meta in self.agents_metadata])}
-                Each agent has specific capabilities:
-                {chr(10).join([f"- {meta['name']}: {meta['description']}" for meta in self.agents_metadata])}
-                You must intelligently route user queries to the most appropriate agent based on their capabilities.
-                Use the following guidelines:
-                - Analyze the user's query and determine which agent is best suited to handle it.
-                - If multiple agents could handle the query, choose the one with the highest expertise.
-                - If no agent is suitable, respond with "I'm sorry, I cannot assist with that request."
-                - Keep track of the conversation context and history to make informed decisions.
-                - Assign work to one agent at a time, do not call agents in parallel.
-                - Do not do any work yourself.
+                    **SYSTEM IDENTITY:**
+                    You are the central supervisor for JARVIS, an AI assistant inspired by Iron Man's J.A.R.V.I.S. Your primary role is to manage a team of specialized agents and ensure the user's request is handled efficiently and accurately. You do not perform tasks yourself; you delegate and orchestrate.
+
+                    **AVAILABLE AGENTS:**
+                    You have access to {len(self.agents)} agent(s):
+                    {chr(10).join([f'- **{meta["name"]}**: {meta["description"]}' for meta in self.agents_metadata])}
+
+                    **WORKFLOW:**
+                    1.  **Analyze:** Carefully analyze the user's query and any provided context or conversation history.
+                    2.  **Route:** Based on the analysis, determine the most appropriate agent to handle the query.
+                    3.  **Delegate:** Assign the task to the selected agent. You must delegate to one agent at a time.
+                    4.  **Supervise & Conclude:** Once the agent completes its work, you will receive its final output. Your last and final action is to present this result to the user in a clear and helpful manner. Frame the response as if you are JARVIS presenting the information.
+
+                    **ROUTING EXAMPLE:**
+                    - User Query: "who is the president of the USA in 2025?" -> Appropriate Agent: "search"
+                    - User Query (Portuguese): "quem é o presidente dos EUA em 2025?" -> Appropriate Agent: "search"
+                    - User Query: "what's the weather like in paris?" -> Appropriate Agent: "search"
+                    - User Query (Portuguese): "como está o tempo em paris?" -> Appropriate Agent: "search"
+                    - User Query: "summarize the last email I received" -> Appropriate Agent: "email" (if available)
+                    - User Query (Portuguese): "resuma o último email que recebi" -> Appropriate Agent: "email" (if available)
+
+                    **CRITICAL DIRECTIVES:**
+                    - **Delegate, Don't Work:** Your only job is to route tasks to agents and present their final results. Do not answer questions or perform actions yourself.
+                    - **One Agent at a Time:** Do not delegate to multiple agents in parallel.
+                    - **No Suitable Agent:** If the user's query cannot be handled by any of your available agents, respond with: "I'm sorry, but that request is outside of my current capabilities."
+                    - **Clarity is Key:** When presenting the final answer, ensure it is well-formatted and easy to understand.
                 """
             ),
             add_handoff_back_messages=True,
@@ -95,9 +111,15 @@ class JarvisAI:
             self.logger.info(f"Processando query: {query[:50]}...")
             enhanced_context = self._build_context(context)
 
+            # Define o limite de iterações para evitar loops
+            max_iterations = 3
+            recursion_limit = 2 * max_iterations + 1
+            config = {"recursion_limit": recursion_limit}
+
             # Executa o grafo supervisor
             response_data = self.graph.invoke(
-                {"messages": [("user", query)], "context": enhanced_context}
+                {"messages": [("user", query)], "context": enhanced_context},
+                config=config,
             )
 
             # A resposta final geralmente está na chave 'messages' do dicionário retornado
@@ -116,7 +138,7 @@ class JarvisAI:
             }
 
             self._save_to_history(query, processed_response)
-            self.logger.info(f"Query processada com sucesso.")
+            self.logger.info("Query processada com sucesso.")
 
             # Forçar o envio dos dados para o Langfuse
             if self.langfuse:
@@ -124,6 +146,13 @@ class JarvisAI:
 
             return processed_response
 
+        except GraphRecursionError:
+            self.logger.warning("Limite de recursão do agente atingido.")
+            return {
+                "content": "I was unable to find a definitive answer in a reasonable number of steps. Please try rephrasing your question.",
+                "confidence": 0.5,
+                "metadata": {"error": "Recursion limit reached"},
+            }
         except Exception as e:
             self.logger.error(f"Erro ao processar query: {e}", exc_info=True)
             return {
@@ -158,7 +187,7 @@ class JarvisAI:
         history_item = {
             "timestamp": datetime.now().isoformat(),
             "query": query,
-            "response_summary": content[:100] + "..." 
+            "response_summary": content[:100] + "..."
             if len(content) > 100
             else content,
             "confidence": response.get("confidence", 0.0),
