@@ -16,6 +16,7 @@ from pydantic import SecretStr
 # Importa os construtores e metadados dos agentes
 from agents.search import create_search_agent, get_search_agent_info
 from config.settings import settings
+from tools.date_tools import get_current_date
 
 
 class JarvisAI:
@@ -27,11 +28,14 @@ class JarvisAI:
 
         # Setup LangFuse PRIMEIRO para que os handlers o encontrem
         self.langfuse = None
+        self.langfuse_handler = None
         if settings.observability.is_enabled:
             self.langfuse = Langfuse(
                 public_key=str(settings.observability.public_key),
+                secret_key=str(settings.observability.secret_key),
                 host=str(settings.observability.host),
             )
+            self.langfuse_handler = CallbackHandler()
 
         # Inicializa agentes e seus metadados
         search_agent, search_tools = create_search_agent()
@@ -57,6 +61,10 @@ class JarvisAI:
         self.graph = create_supervisor(
             model=supervisor_llm,
             agents=self.agents,
+            tools=[get_current_date],
+            add_handoff_messages=True,
+            add_handoff_back_messages=True,
+            output_mode="last_message",
             prompt=(
                 f"""
                     **SYSTEM IDENTITY:**
@@ -64,7 +72,7 @@ class JarvisAI:
 
                     **AVAILABLE AGENTS:**
                     You have access to {len(self.agents)} agent(s):
-                    {chr(10).join([f'- **{meta["name"]}**: {meta["description"]}' for meta in self.agents_metadata])}
+                    {chr(10).join([f"- **{meta['name']}**: {meta['description']}" for meta in self.agents_metadata])}
 
                     **WORKFLOW:**
                     1.  **Analyze:** Carefully analyze the user's query and any provided context or conversation history.
@@ -87,8 +95,6 @@ class JarvisAI:
                     - **Clarity is Key:** When presenting the final answer, ensure it is well-formatted and easy to understand.
                 """
             ),
-            add_handoff_back_messages=True,
-            output_mode="full_history",
         ).compile()
 
         # Setup logging
@@ -111,10 +117,12 @@ class JarvisAI:
             self.logger.info(f"Processando query: {query[:50]}...")
             enhanced_context = self._build_context(context)
 
-            # Define o limite de iterações para evitar loops
+            # Define o limite de iterações e os callbacks para a execução do grafo
             max_iterations = 3
             recursion_limit = 2 * max_iterations + 1
             config = {"recursion_limit": recursion_limit}
+            if self.langfuse_handler:
+                config["callbacks"] = [self.langfuse_handler]
 
             # Executa o grafo supervisor
             response_data = self.graph.invoke(

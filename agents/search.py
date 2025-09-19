@@ -19,11 +19,8 @@ def create_search_agent():
     Returns:
         Runnable: O agente reativo pronto para ser usado no LangGraph.
     """
-    # Configura os callbacks para observabilidade
-    callbacks = [CallbackHandler()] if settings.observability.is_enabled else None
-
     # Ferramentas do agente
-    tools = [TavilySearch(max_results=10, topic="general"), get_current_date]
+    tools = [TavilySearch(max_results=5, topic="general"), get_current_date]
 
     # Instancia o modelo diretamente, que é a forma correta e robusta
     llm = ChatGoogleGenerativeAI(
@@ -31,7 +28,6 @@ def create_search_agent():
         api_key=SecretStr(settings.gemini_api_key),
         temperature=settings.ai_model_config.temperature,
         max_tokens=settings.ai_model_config.max_tokens,
-        callbacks=callbacks,
     )
 
     # Criar agente reativo

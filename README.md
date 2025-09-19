@@ -2,28 +2,11 @@
 
 Assistente de IA inspirado no Jarvis do Homem de Ferro, construído com Python, LangChain e Gemini Pro.
 
-## ⚡ Quick Start
+## ⚡ Configuração Inicial
 
-### 1. Clone e Configure
-
-```bash
-# Clone ou crie o projeto
-mkdir jarvis_ai && cd jarvis_ai
-
-# Execute o setup (Linux/Mac)
-chmod +x setup.sh
-./setup.sh
-
-# Ou manualmente:
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 2. Configure APIs
+### Edite o arquivo .env
 
 ```bash
-# Edite o arquivo .env
 cp .env.example .env
 nano .env
 ```
@@ -32,27 +15,24 @@ nano .env
 
 - `GEMINI_API_KEY` - Obtenha em [Google AI Studio](https://aistudio.google.com)
 
-### 3. Execute
+## ⚡ Como Executar
 
 ```bash
-# Verificar configuração
-python main.py config
-
-# Iniciar chat
-python main.py chat
+uv run python main.py config   # Verificar configuração
+uv run python main.py chat     # Iniciar chat
 ```
 
 ## 🎯 Funcionalidades Atuais (MVP)
 
-### ✅ Implementado
+### Implementado
 
 - **Chat CLI Interativo** - Interface limpa com Rich
 - **Agente de Busca** - Perguntas gerais com Gemini Pro
-- **Roteamento Inteligente** - LangGraph para seleção de agentes
+- **Orquestração Multi-Agente** - Seleção e coordenação de agentes via langgraph-supervisor
 - **Observabilidade** - Integração opcional com LangFuse
 - **Histórico de Conversa** - Contexto persistente na sessão
 
-### 🚧 Em Desenvolvimento
+### Em Desenvolvimento
 
 - **📧 Email Agent** - Leitura e resumo de emails (Gmail)
 - **🎵 Music Agent** - Controle do Spotify
@@ -63,23 +43,22 @@ python main.py chat
 ## 🛠 Comandos CLI
 
 ```bash
-python main.py chat          # Iniciar conversa
-python main.py config        # Verificar configuração
-python main.py setup         # Setup inicial
-python main.py version       # Informações da versão
+uv run python main.py chat          # Iniciar conversa
+uv run python main.py config        # Verificar configuração
+uv run python main.py setup         # Setup inicial
+uv run python main.py version       # Informações da versão
 ```
 
-### Durante o Chat
+### Comandos Durante o Chat
 
-- `help` - Mostrar comandos
-- `status` - Status do sistema  
+- `status` - Status do sistema
 - `clear` - Limpar histórico
 - `capabilities` - Ver funcionalidades
 - `exit` - Sair
 
 ## 📁 Estrutura do Projeto
 
-```
+```text
 jarvis_ai/
 ├── main.py                 # CLI principal
 ├── requirements.txt        # Dependências
@@ -87,8 +66,7 @@ jarvis_ai/
 ├── config/
 │   └── settings.py        # Configurações
 ├── core/
-│   ├── jarvis.py         # Classe principal
-│   └── router.py         # Roteamento LangGraph
+│   └── jarvis.py         # Classe principal
 ├── agents/
 │   ├── base.py           # Classe base
 │   └── search.py         # Agente de busca
@@ -119,19 +97,19 @@ LANGFUSE_PUBLIC_KEY=your_langfuse_public
 ### Fase 2 - Integrações (2-3 semanas)
 
 1. **EmailAgent** - Gmail API
-2. **MusicAgent** - Spotify API  
+2. **MusicAgent** - Spotify API
 3. **StandupAgent** - Azure DevOps + GitHub
 
 ### Fase 3 - Automação (1-2 semanas)
 
-4. **PlanningAgent** - Assistente de sprints
-5. **Obsidian Integration** - Notas e documentação
+1. **PlanningAgent** - Assistente de sprints
+2. **Obsidian Integration** - Notas e documentação
 
 ### Fase 4 - Voz e Local (futuro)
 
-6. **Interface de Voz** - Speech-to-text + TTS
-7. **Modelos Locais** - Ollama para privacidade
-8. **UmbrelOS** - Deploy em servidor local
+1. **Interface de Voz** - Speech-to-text + TTS
+2. **Modelos Locais** - Ollama para privacidade
+3. **UmbrelOS** - Deploy em servidor local
 
 ## 🐛 Troubleshooting
 
@@ -159,7 +137,7 @@ uv run python main.py config  # Verificar configuração
 **Dependências desatualizadas?**
 
 ```bash
-uv sync --upgrade  # Atualizar todas as dependências
+uv sync  # Sincronizar e atualizar todas as dependências
 ```
 
 **Problemas com ambiente?**
@@ -189,6 +167,6 @@ Este é um MVP focado em funcionamento básico. Contribuições são bem-vindas!
 
 ---
 
-*"Sometimes you gotta run before you can walk." - Tony Stark*
+> "Sometimes you gotta run before you can walk." - Tony Stark
 
 **🚀 Comece hoje mesmo seu assistente de IA!**
