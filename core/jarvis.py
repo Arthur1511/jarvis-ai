@@ -26,10 +26,29 @@ class JarvisAI:
     def __init__(self):
         self.conversation_history: List[Dict[str, Any]] = []
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        # Setup LangFuse PRIMEIRO para que os handlers o encontrem
         self.langfuse = None
         self.langfuse_handler = None
+        self.agents = []
+        self.agents_metadata = []
+        self.all_tools = []
+
+        self._setup_logging()
+        self._setup_observability()
+        self._create_agents()
+        self.graph = self._build_supervisor()
+        
+        self.logger.info("Jarvis AI iniciado com sucesso")
+
+    def _setup_logging(self):
+        """Configura o logging para a aplicação."""
+        logging.basicConfig(
+            level=getattr(logging, settings.log_level.upper()),
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+        self.logger = logging.getLogger(__name__)
+
+    def _setup_observability(self):
+        """Inicializa o LangFuse se estiver habilitado."""
         if settings.observability.is_enabled:
             self.langfuse = Langfuse(
                 public_key=str(settings.observability.public_key),
@@ -37,28 +56,24 @@ class JarvisAI:
                 host=str(settings.observability.host),
             )
             self.langfuse_handler = CallbackHandler()
+            self.logger.info("LangFuse de observabilidade habilitado.")
 
-        # Inicializa agentes e seus metadados
+    def _create_agents(self):
+        """Cria e registra todos os agentes disponíveis."""
         search_agent, search_tools = create_search_agent()
-        self.agents = [
-            search_agent,
-            # Adicione novos agentes aqui como tupla
-        ]
-        self.all_tools = search_tools
+        self.agents.append(search_agent)
+        self.agents_metadata.append(get_search_agent_info())
+        self.all_tools.extend(search_tools)
+        # Adicione novos agentes aqui
 
-        self.agents_metadata = [
-            get_search_agent_info(),
-            # "music": get_music_agent_info(),
-        ]
-
-        # LLM para o supervisor
+    def _build_supervisor(self):
+        """Constrói o grafo do supervisor com os agentes registrados."""
         supervisor_llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
             api_key=SecretStr(settings.gemini_api_key),
             temperature=settings.ai_model_config.temperature,
         )
 
-        # Prepara o prompt do supervisor com os detalhes dos agentes
         agent_descriptions = "\n".join(
             [f"- **{meta['name']}**: {meta['description']}" for meta in self.agents_metadata]
         )
@@ -66,8 +81,7 @@ class JarvisAI:
             num_agents=len(self.agents), agent_descriptions=agent_descriptions
         )
 
-        # Cria grafo supervisor com os runnables dos agentes
-        self.graph = create_supervisor(
+        return create_supervisor(
             model=supervisor_llm,
             agents=self.agents,
             tools=[get_current_date],
@@ -76,14 +90,6 @@ class JarvisAI:
             output_mode="last_message",
             prompt=supervisor_system_prompt,
         ).compile()
-
-        # Setup logging
-        logging.basicConfig(
-            level=getattr(logging, settings.log_level.upper()),
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        )
-        self.logger = logging.getLogger(__name__)
-        self.logger.info("Jarvis AI iniciado com sucesso")
 
     async def process_query(
         self,
@@ -207,17 +213,29 @@ class JarvisAI:
         }
 
     def get_capabilities(self) -> str:
-        """Retorna descrição das capacidades atuais"""
-        # Esta função pode ser melhorada para buscar as descrições dos metadados
-        capabilities = [
-            "🔍 **Busca e Conhecimento Geral**",
-            "   • Responder perguntas sobre qualquer tópico",
-            "   • Explicar conceitos complexos",
-            "",
-            "🚧 **Em Desenvolvimento**",
-            "   • 🎵 Controle de música (Spotify)",
-        ]
-        return "\n".join(capabilities)
+        """Retorna descrição das capacidades atuais, gerada dinamicamente."""
+        if not self.agents_metadata:
+            return "Nenhuma capacidade disponível no momento."
+
+        capabilities_list = []
+        for meta in self.agents_metadata:
+            # Adiciona o nome do agente como um título
+            agent_name = meta.get("name", "Agente Desconhecido").replace("_", " ").title()
+            capabilities_list.append(f"### 🤖 {agent_name}")
+            
+            # Adiciona a descrição das capacidades do agente
+            description = meta.get("capabilities_description", "Nenhuma descrição de capacidade fornecida.")
+            # Formata a descrição para melhor leitura, adicionando bullets
+            formatted_description = "\n".join([f"- {line.strip()}" for line in description.split('-') if line.strip()])
+            capabilities_list.append(formatted_description)
+            capabilities_list.append("") # Adiciona uma linha em branco para separação
+
+        # Adiciona uma seção para funcionalidades em desenvolvimento
+        capabilities_list.append("### 🚧 Em Desenvolvimento")
+        capabilities_list.append("- 🎵 Controle de música (Spotify)")
+        capabilities_list.append("- 📧 Leitura e envio de e-mails (Gmail)")
+
+        return "\n".join(capabilities_list)
 
     async def health_check(self) -> Dict[str, Any]:
         """Verifica saúde do sistema"""
