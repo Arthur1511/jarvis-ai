@@ -297,7 +297,7 @@ def setup():
 
 2. **Instale as dependências:**
    ```
-   pip install -r requirements.txt
+   uv sync
    ```
 
 3. **Teste o sistema:**

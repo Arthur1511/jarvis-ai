@@ -61,16 +61,17 @@ uv run python main.py version       # Informações da versão
 ```text
 jarvis_ai/
 ├── main.py                 # CLI principal
-├── requirements.txt        # Dependências
+├── requirements.txt        # Dependências (legado, use pyproject.toml)
+├── pyproject.toml          # Dependências e configuração principal
 ├── .env.example           # Template configuração
 ├── config/
 │   └── settings.py        # Configurações
 ├── core/
 │   └── jarvis.py         # Classe principal
 ├── agents/
-│   ├── base.py           # Classe base
 │   └── search.py         # Agente de busca
-└── tools/                # Integrações futuras
+├── tools/                # Integrações futuras
+├── memory/               # Persistência e histórico (planejado)
 ```
 
 ## ⚙️ Configuração
